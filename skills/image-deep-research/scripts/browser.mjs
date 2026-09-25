@@ -93,7 +93,11 @@ export async function launch(bin = findBrowser()) {
   proc.once('error', (err) => { launchError = err; });
 
   const portFile = join(udd, 'DevToolsActivePort');
-  for (let i = 0; i < 150; i++) {
+  // 45 s, not 15: the first start of Chrome on a fresh Windows machine (a CI
+  // runner, measured 2026-09-25) took longer than 15 s to open its port, while
+  // every later start in the same run took about one.
+  const deadline = Date.now() + 45000;
+  for (let i = 0; Date.now() < deadline; i++) {
     if (launchError || (proc.exitCode !== null && proc.exitCode !== 0)) break;
     const port = readPortFile(portFile) || (i % 3 === 2 && await answers(asked) ? asked : null);
     if (port) return { port, udd, close: () => shutdown(proc, udd, port) };

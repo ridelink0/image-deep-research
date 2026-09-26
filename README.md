@@ -11,6 +11,17 @@ reading one article about them. This plugin gets those twenty examples in
 front of the model in one or two image reads, and holds it to what it
 actually saw.
 
+![A moodboard of eight public-domain works found for "cypress trees" at the Art Institute of Chicago and the Met, each tile labelled with its source and licence.](docs/img/moodboard-cypress-trees.jpg)
+
+<sub>Real output of `node skills/image-deep-research/scripts/images.mjs "cypress trees" --sources aic,met --n 6 --sheet`, 2026-09-26: the first of two sheets, every URL fetched and verified before it was tiled. All eight works are CC0. Not every hit is a cypress, which is why the skill reads the sheet before it recommends anything.</sub>
+
+```
+/plugin marketplace add ridelink0/image-deep-research
+/plugin install image-deep-research@image-deep-research
+```
+
+Codex and the other routes are under [Install](#install).
+
 It also ships inside [Ultimate Frontend Skills](https://github.com/ridelink0/ultimate-frontend-skills),
 which carries this skill as its image research route. If you already have
 UFS installed you have this skill: do not install both, or the skill will show
@@ -71,6 +82,15 @@ codex plugin add image-deep-research@image-deep-research
 
 Codex reads the same `.claude-plugin/marketplace.json` and the plugin's
 `.codex-plugin/plugin.json`.
+
+### Any agent the skills CLI knows
+
+```bash
+npx skills add ridelink0/image-deep-research
+```
+
+This copies the skill folder, scripts included, into every agent it finds on
+the machine. It installs the skill only, not the slash commands.
 
 ### Requirements
 

@@ -9,6 +9,9 @@
   },
   "homepage": "https://github.com/ridelink0/image-deep-research",
   "repository": "https://github.com/ridelink0/image-deep-research",
+  "documentationUrl": "https://github.com/ridelink0/image-deep-research#readme",
+  "supportUrl": "https://github.com/ridelink0/image-deep-research/issues",
+  "privacyPolicyUrl": "https://github.com/ridelink0/image-deep-research/blob/main/PRIVACY.md",
   "license": "MIT",
   "keywords": [
     "image research",

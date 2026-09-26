@@ -14,8 +14,10 @@ its scripts:
   [Wikimedia Commons](https://commons.wikimedia.org), the
   [Art Institute of Chicago](https://api.artic.edu/docs/) and
   [the Met](https://metmuseum.github.io/), then fetch the image URLs they
-  return to check each one is a real image. Requests carry the user agent
-  `image-deep-research/1.0` and no key, cookie or credential.
+  return to check each one is a real image. Requests carry a user agent
+  naming the plugin (`image-deep-research/1.0`, plus this repository's URL
+  for Wikimedia and the Art Institute, as their API rules ask) and no key,
+  cookie or credential.
 - **Website studies** (`study.mjs`) open the sites you name in a headless
   Chrome, Edge or Chromium on your machine, the same as visiting them. The
   browser runs with a fresh profile made for that run in the system temp

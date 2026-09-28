@@ -4,10 +4,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { findBrowser, launch, withBrowser } from '../skills/image-deep-research/scripts/browser.mjs';
+import { findBrowser, launch, withBrowser, load } from '../skills/image-deep-research/scripts/browser.mjs';
 import { study } from '../skills/image-deep-research/scripts/study.mjs';
 import { renderSheets, CELL_W } from '../skills/image-deep-research/scripts/sheet.mjs';
 
@@ -94,6 +94,25 @@ test('renderSheets reports a tile that failed to load instead of leaving it grey
     assert.deepEqual(sheets[0].tiles.map((t) => t.loaded), [true, false]);
     assert.equal(jpegSize(readFileSync(sheets[0].file)).w, 2 * CELL_W + 3 * 6);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+// Every name the browser leaves in the temp directory is a leak, whoever named
+// it: Edge wrote Importer_0_4, cv_debug.log and msedge_url_fetcher_* there on
+// v1.0.0. The run gets a temp directory of its own and must leave it empty.
+test('a browser run that loads a page leaves nothing at all in its temp directory', { skip: noBrowser && 'no browser' }, async () => {
+  const own = mkdtempSync(join(tmpdir(), 'idr-leak-'));
+  const saved = { TEMP: process.env.TEMP, TMP: process.env.TMP, TMPDIR: process.env.TMPDIR };
+  process.env.TEMP = process.env.TMP = process.env.TMPDIR = own;
+  try {
+    await withBrowser(async (s) => {
+      await load(s, base + '/ref', { wait: 1500 });
+    });
+    await new Promise((r) => setTimeout(r, 1000));
+    assert.deepEqual(readdirSync(own), [], 'left in the temp directory');
+  } finally {
+    for (const [k, v] of Object.entries(saved)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+    rmSync(own, { recursive: true, force: true });
+  }
 });
 
 test('close() ends the browser it started', { skip: noBrowser && 'no browser' }, async () => {

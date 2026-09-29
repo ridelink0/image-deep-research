@@ -7,8 +7,9 @@ import { createServer } from 'node:http';
 import { mkdtempSync, readFileSync, existsSync, rmSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { deflateSync } from 'node:zlib';
 import { findBrowser, launch, withBrowser, load } from '../skills/image-deep-research/scripts/browser.mjs';
-import { study } from '../skills/image-deep-research/scripts/study.mjs';
+import { study, formatSiteCompact } from '../skills/image-deep-research/scripts/study.mjs';
 import { renderSheets, CELL_W } from '../skills/image-deep-research/scripts/sheet.mjs';
 
 const noBrowser = !findBrowser();
@@ -21,6 +22,33 @@ p{margin:0 40px 40px}</style><h1>A reference heading</h1>${paras}`,
   '/wall': '<!doctype html><title>Just a moment</title><p>Checking your browser.</p>',
   '/oklch': `<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:oklch(0.3 0.05 250);color:oklch(0.95 0.02 85)}</style>${paras}`,
 };
+
+/* A small RGB PNG, so a sheet has real pictures to tile: a diagonal
+   gradient in one hue per tile with a light block and a dark bar on it. */
+const CRC = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+const crc32 = (buf) => { let c = 0xffffffff; for (const b of buf) c = CRC[(c ^ b) & 0xff] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+function png(w, h, seed) {
+  const raw = Buffer.alloc((w * 3 + 1) * h);
+  const hue = [(seed * 67) % 256, (seed * 131 + 60) % 256, (seed * 29 + 120) % 256];
+  for (let y = 0; y < h; y++) {
+    raw[y * (w * 3 + 1)] = 0;
+    for (let x = 0; x < w; x++) {
+      const t = (x + y) / (w + h);
+      const block = x > w * 0.2 && x < w * 0.55 && y > h * 0.25 && y < h * 0.7;
+      const bar = y > h * 0.8 && y < h * 0.86;
+      for (let c = 0; c < 3; c++) raw[y * (w * 3 + 1) + 1 + x * 3 + c] = bar ? 20 : block ? 235 - c * 20 : Math.round(hue[c] * (0.35 + 0.65 * t));
+    }
+  }
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type), data]);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([len, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]);
+}
 
 function jpegSize(buf) {
   assert.equal(buf.readUInt16BE(0), 0xffd8, 'not a JPEG');
@@ -37,7 +65,7 @@ let server, base, out;
 test.before(async () => {
   if (noBrowser) return;
   server = createServer((req, res) => {
-    const body = PAGES[req.url];
+    const body = PAGES[req.url.split('?')[0]];
     res.writeHead(body ? 200 : 404, { 'content-type': 'text/html; charset=utf-8' });
     res.end(body || 'not found');
   });
@@ -123,4 +151,50 @@ test('close() ends the browser it started', { skip: noBrowser && 'no browser' },
   const after = await fetch(`http://127.0.0.1:${b.port}/json/version`, { signal: AbortSignal.timeout(1000) }).then((r) => r.ok, () => false);
   assert.equal(after, false, 'the browser still answers after close()');
   assert.equal(existsSync(b.udd), false, 'the temporary profile was left behind');
+});
+
+// --compact: sixteen tiles, one 1288 x 812 sheet (46 x 29 patches, 1,334 image
+// tokens) and no more than 150,000 bytes, so a Read never downscales it.
+test('a compact moodboard of 16 local tiles is one 1288x812 JPEG of at most 150,000 bytes', { skip: noBrowser && 'no browser' }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'idr-compact-'));
+  try {
+    const items = Array.from({ length: 16 }, (_, i) => {
+      const file = join(dir, `tile${i + 1}.png`);
+      writeFileSync(file, png(i % 3 ? 640 : 400, i % 3 ? 400 : 600, i + 1));
+      return { n: i + 1, src: file, label: 'tile ' + (i + 1) };
+    });
+    const sheets = await withBrowser((s) => renderSheets(s, items, { out: dir, prefix: 'moodboard', fit: 'contain', compact: true }));
+    assert.equal(sheets.length, 1);
+    const [sheet] = sheets;
+    const buf = readFileSync(sheet.file);
+    assert.deepEqual(jpegSize(buf), { w: 1288, h: 812 });
+    assert.ok(buf.length <= 150000, buf.length + ' bytes');
+    assert.deepEqual([sheet.w, sheet.h, sheet.tokens, sheet.bytes], [1288, 812, 1334, buf.length]);
+    assert.ok([80, 70, 60].includes(sheet.quality));
+    assert.deepEqual(sheet.tiles.map((t) => t.n), items.map((t) => t.n));
+    assert.ok(sheet.tiles.every((t) => t.loaded), 'a tile did not load');
+    assert.doesNotMatch(readFileSync(join(dir, '_moodboard1.html'), 'utf8'), /figcaption/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a compact study of 8 pages at 2 scrolls is one sheet, and one line per site', { skip: noBrowser && 'no browser' }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'idr-cstudy-'));
+  try {
+    const urls = Array.from({ length: 8 }, (_, i) => `${base}/ref?site=${i + 1}`);
+    const lines = [];
+    const report = await study(urls, { out: dir, wait: 100, compact: true, log: (site, i) => lines.push(formatSiteCompact(site, i)) });
+    assert.ok(report.sites.every((s) => s.status === 'ok'));
+    assert.equal(report.sheets.length, 1);
+    const [sheet] = report.sheets;
+    assert.equal(sheet.tiles.length, 16);
+    assert.deepEqual(jpegSize(readFileSync(sheet.file)), { w: 1288, h: 812 });
+    assert.equal(sheet.tokens, 1334);
+    assert.ok(sheet.bytes <= 150000, sheet.bytes + ' bytes');
+    const html = readFileSync(join(dir, '_sheet1.html'), 'utf8');
+    assert.match(html, /<span>s01<\/span>/);
+    assert.match(html, /<span>s08 y900<\/span>/);
+    assert.equal(lines.length, 8);
+    for (const l of lines) assert.ok(l.length <= 160, l);
+    assert.match(lines[0], /^s01 ok 127\.0\.0\.1:\d+ \| ground #1d2a3a [\d.]+% \| ink #f2e8d5 [\d.]+% \| heading Georgia 64\/[\w.]+ w400 \| body Arial 18\/[\w.]+ w400$/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

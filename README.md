@@ -97,8 +97,12 @@ the machine. It installs the skill only, not the slash commands.
 Node 22 or newer (the scripts use its built-in `fetch` and `WebSocket`; there
 are no dependencies to install). Rendering needs Chrome, Edge or Chromium; on
 Windows Edge is usually already there. Set `IDR_BROWSER` to the browser
-executable if it lives somewhere unusual. The browser always runs headless and
-never opens a window. Image search alone needs no browser.
+executable if it lives somewhere unusual. On Linux it also finds the Chromium
+that Playwright downloads (`$PLAYWRIGHT_BROWSERS_PATH`, `~/.cache/ms-playwright`
+or `/opt/pw-browsers`), and when it runs as root, as in many containers, it
+starts the browser with `--no-sandbox`, which Chrome needs there
+(`IDR_NO_SANDBOX=1` asks for that flag without root). The browser always runs
+headless and never opens a window. Image search alone needs no browser.
 
 ## Use
 
@@ -127,6 +131,30 @@ node skills/image-deep-research/scripts/study.mjs --list editorial --width 390
 Output goes to a temporary folder that is printed at the end (`--out <dir>`
 to choose one): the sheets as JPEG, the screenshots as PNG, and
 `results.json` or `report.json` with everything measured.
+
+**Compact mode (1.1.0).** Every picture the model reads stays in the
+conversation and is sent again on every later turn, so in a coding session
+add `--compact` to either script. It draws one sheet of up to 16 tiles with
+only a number badge on each: 1288x812 px, which Anthropic's vision pricing
+(28 px patches) puts at exactly 1,334 image tokens on every Claude model,
+against 2,852 for one of the eight-tile sheets on the high-resolution
+models (1,064 on the others). A JPEG over 150,000 bytes at
+quality 80 is taken again at 70 and then 60 (sixteen website screenshots came
+out at 131-141 kB at 80; a very busy sheet can stay over). Text is one line
+per result (number, source, licence, title, creator) or per site (ground,
+ink, heading and body type), with no URLs; `images.mjs --compact` searches
+4 per source instead of 6. The numbers on the tiles and the lines are the
+same numbers, and
+`images.mjs --pick 3,7 --results <out>/results.json` prints the full record of
+the ones you keep (licence URL, image URL, source page) without touching the
+network. On the fixtures, 16 results print in about 1,500 characters, where
+the full table for 24 prints about 8,200.
+
+```bash
+node skills/image-deep-research/scripts/images.mjs "cypress trees" --compact
+node skills/image-deep-research/scripts/images.mjs --pick 3,7 --results /tmp/image-deep-research/images-.../results.json
+node skills/image-deep-research/scripts/study.mjs --list product --compact
+```
 
 ## What it cannot do
 

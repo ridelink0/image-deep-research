@@ -10,6 +10,7 @@ import { parseArgs, int } from '../skills/image-deep-research/scripts/args.mjs';
 import { parseOpenverse, parseCommons, parseAic, parseMetObject, commercialOk, verifyImage, searchImages, SEARCH } from '../skills/image-deep-research/scripts/images.mjs';
 import { planSheets, sheetHtml, PER_SHEET } from '../skills/image-deep-research/scripts/sheet.mjs';
 import { LISTS, slugFor, classify } from '../skills/image-deep-research/scripts/study.mjs';
+import { findBrowser, launchArgs } from '../skills/image-deep-research/scripts/browser.mjs';
 
 const fx = (name) => JSON.parse(readFileSync(fileURLToPath(new URL('./fixtures/' + name, import.meta.url)), 'utf8'));
 
@@ -185,4 +186,41 @@ test('classify: challenge signatures decide, sparse real pages pass, an empty sh
   assert.equal(wall({ title: 'Game', textElements: 0, canvases: 1 }), 'ok', 'a canvas page is flagged, not dropped');
   assert.equal(wall({ title: 'Docs', textElements: 400, frames: ['https://www.google.com/recaptcha/api2/anchor'] }), 'ok', 'a full page with a form captcha is not a wall');
   assert.match(classify({ title: 'Access Denied', textElements: 4 }).reason, /Access Denied/);
+});
+
+test('findBrowser: after the env and the system paths, the newest Playwright Chromium on Linux', () => {
+  const files = new Set(['/opt/pw-browsers/chromium-1194/chrome-linux/chrome', '/opt/pw-browsers/chromium-1100/chrome-linux/chrome']);
+  const dirs = { '/opt/pw-browsers': ['chromium', 'chromium-1100', 'chromium_headless_shell-1194', 'chromium-1194', 'ffmpeg-1011'] };
+  const fs = {
+    exists: (p) => files.has(p),
+    readdir: (d) => { if (!dirs[d]) throw Object.assign(new Error('ENOENT'), { code: 'ENOENT' }); return dirs[d]; },
+  };
+  const linux = { platform: 'linux', home: '/root', ...fs };
+  assert.equal(findBrowser({ env: {}, ...linux }), '/opt/pw-browsers/chromium-1194/chrome-linux/chrome');
+  // $PLAYWRIGHT_BROWSERS_PATH and the per-user cache come before /opt.
+  files.add('/pw/chromium-900/chrome-linux/chrome');
+  dirs['/pw'] = ['chromium-900'];
+  assert.equal(findBrowser({ env: { PLAYWRIGHT_BROWSERS_PATH: '/pw' }, ...linux }), '/pw/chromium-900/chrome-linux/chrome');
+  files.add('/root/.cache/ms-playwright/chromium-1200/chrome-linux/chrome');
+  dirs['/root/.cache/ms-playwright'] = ['chromium-1200'];
+  assert.equal(findBrowser({ env: {}, ...linux }), '/root/.cache/ms-playwright/chromium-1200/chrome-linux/chrome');
+  // A system Chrome and IDR_BROWSER still win, and other platforms never look.
+  files.add('/usr/bin/chromium');
+  assert.equal(findBrowser({ env: {}, ...linux }), '/usr/bin/chromium');
+  files.add('/x/chrome');
+  assert.equal(findBrowser({ env: { IDR_BROWSER: '/x/chrome' }, ...linux }), '/x/chrome');
+  assert.equal(findBrowser({ env: {}, ...fs, platform: 'darwin', home: '/root' }), null);
+  assert.equal(findBrowser({ env: {}, platform: 'linux', home: '/nobody', exists: () => false, readdir: () => [] }), null);
+});
+
+test('launchArgs: --no-sandbox for root or IDR_NO_SANDBOX=1, never otherwise', () => {
+  const has = (o) => launchArgs('/tmp/p', 9222, o).includes('--no-sandbox');
+  assert.equal(has({ uid: 0, env: {} }), true);
+  assert.equal(has({ uid: 1000, env: {} }), false);
+  assert.equal(has({ uid: null, env: {} }), false, 'no uid (Windows)');
+  assert.equal(has({ uid: 1000, env: { IDR_NO_SANDBOX: '1' } }), true);
+  assert.equal(has({ uid: 1000, env: { IDR_NO_SANDBOX: '0' } }), false);
+  const args = launchArgs('/tmp/p', 9222, { uid: 1000, env: {} });
+  assert.ok(args.includes('--headless=new') && args.includes('--user-data-dir=/tmp/p') && args.includes('--remote-debugging-port=9222'));
+  assert.equal(args.at(-1), 'about:blank');
 });

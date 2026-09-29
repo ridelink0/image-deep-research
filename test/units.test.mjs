@@ -135,6 +135,7 @@ test('searchImages: one failing source is reported, not fatal; --commercial filt
   const res = await searchImages('q', { sources: ['openverse', 'commons'], n: 2, commercial: true, verify: async (u) => ({ ok: !u.endsWith('3.jpg'), status: 200 }) });
   assert.deepEqual(res.results.map((r) => r.title), ['b', 'c']);
   assert.deepEqual(res.results.map((r) => r.verified.ok), [true, false]);
+  assert.deepEqual(res.results.map((r) => r.n), [1, undefined], 'results.json records n for verified results only');
   assert.deepEqual(res.errors, [{ source: 'commons', error: 'commons.wikimedia.org answered 503' }]);
 });
 
@@ -212,6 +213,15 @@ test('findBrowser: after the env and the system paths, the newest Playwright Chr
   assert.equal(findBrowser({ env: { IDR_BROWSER: '/x/chrome' }, ...linux }), '/x/chrome');
   assert.equal(findBrowser({ env: {}, ...fs, platform: 'darwin', home: '/root' }), null);
   assert.equal(findBrowser({ env: {}, platform: 'linux', home: '/nobody', exists: () => false, readdir: () => [] }), null);
+});
+
+// Playwright 1.57 and later install Chrome for Testing: chrome-linux64/ on
+// x64 and chrome-linux-arm64/ on arm64, no longer chrome-linux/.
+test('findBrowser: the Chrome for Testing layouts of newer Playwright releases', () => {
+  const tree = (files) => ({ platform: 'linux', home: '/home/u', env: { PLAYWRIGHT_BROWSERS_PATH: '/pw' },
+    exists: (p) => files.includes(p), readdir: (d) => { if (d !== '/pw') throw new Error('ENOENT'); return ['chromium-1208', 'chromium_headless_shell-1208', 'ffmpeg-1011']; } });
+  assert.equal(findBrowser(tree(['/pw/chromium-1208/chrome-linux64/chrome'])), '/pw/chromium-1208/chrome-linux64/chrome');
+  assert.equal(findBrowser(tree(['/pw/chromium-1208/chrome-linux-arm64/chrome'])), '/pw/chromium-1208/chrome-linux-arm64/chrome');
 });
 
 test('launchArgs: --no-sandbox for root or IDR_NO_SANDBOX=1, never otherwise', () => {
@@ -340,6 +350,9 @@ test('compact text: 16 results in at most 1,800 characters, one line each, no UR
   const clean = formatCompact({ ...res, results: results.slice(0, 16), sheets: undefined, sheetError: 'no Chrome, Edge or Chromium found.\n  Windows: ...' }, { out });
   assert.doesNotMatch(clean, /^failed /m);
   assert.match(clean, /^sheet none: no Chrome, Edge or Chromium found\.$/m);
+  // A Windows temp path runs as printed in Git Bash: forward slashes, and quotes around a space.
+  const win = formatCompact(res, { out: 'C:\\Users\\Jane Doe\\AppData\\Local\\Temp\\idr', resultsPath: 'C:\\Users\\Jane Doe\\AppData\\Local\\Temp\\idr\\results.json' });
+  assert.equal(win.split('\n').at(-1), 'details: node images.mjs --pick 1,2 --results "C:/Users/Jane Doe/AppData/Local/Temp/idr/results.json"');
 });
 
 test('formatPick prints three lines per picked result and refuses an unknown number', () => {

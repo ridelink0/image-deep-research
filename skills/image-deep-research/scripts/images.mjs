@@ -237,6 +237,14 @@ const squeeze = (s, max) => {
    and --pick prints the licence in full. */
 const shortLicence = (l) => squeeze(String(l || '').replace(/\s*\([^)]*\)\s*/g, ' '), 16) || 'licence?';
 
+/* A path the details line can hand to a shell as it is. Git Bash, which
+   Claude Code runs on Windows, eats backslashes (C:\Users -> C:Users), and a
+   space splits the argument; Node reads C:/Users/... on Windows. */
+const shellPath = (p) => {
+  const f = String(p).replace(/\\/g, '/');
+  return /^[\w./:@%+,=-]+$/.test(f) ? f : `"${f}"`;
+};
+
 /* The compact report: a header, one line per verified result, the sheet
    lines, how many failed, and how to get the rest. Never a URL: those stay in
    results.json and come out through --pick. */
@@ -255,7 +263,7 @@ export function formatCompact(res, { out, resultsPath = join(out, 'results.json'
   if (res.sheetError) lines.push('sheet none: ' + squeeze(res.sheetError.split('\n')[0], 100));
   const failed = res.results.length - good.length;
   if (failed) lines.push(`failed ${failed} (see results.json)`);
-  if (good.length) lines.push(`details: node images.mjs --pick ${good.slice(0, 2).map((r) => r.n).join(',')} --results ${resultsPath}`);
+  if (good.length) lines.push(`details: node images.mjs --pick ${good.slice(0, 2).map((r) => r.n).join(',')} --results ${shellPath(resultsPath)}`);
   return lines.join('\n');
 }
 

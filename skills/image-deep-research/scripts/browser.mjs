@@ -38,7 +38,12 @@ function candidates(platform, env) {
 /* The Chromium builds Playwright downloads, newest revision first in each
    folder: $PLAYWRIGHT_BROWSERS_PATH, the per-user cache, and /opt/pw-browsers,
    where containers and cloud sandboxes (this repo's own test container among
-   them, 2026-09-29) keep one and nothing else. */
+   them, 2026-09-29) keep one and nothing else. Up to Playwright 1.56 the
+   binary sits in chrome-linux/; later ones install Chrome for Testing into
+   chrome-linux64/ (x64) or chrome-linux-arm64/ (read from playwright-core
+   1.56.1 and 1.63.0's registries). */
+const PW_LAYOUTS = ['chrome-linux', 'chrome-linux64', 'chrome-linux-arm64'];
+
 function playwrightChromes({ env, home, readdir }) {
   const bases = [env.PLAYWRIGHT_BROWSERS_PATH, home && posix.join(home, '.cache', 'ms-playwright'), '/opt/pw-browsers'];
   const out = [];
@@ -46,7 +51,7 @@ function playwrightChromes({ env, home, readdir }) {
     let names;
     try { names = readdir(base); } catch { continue; }
     const revs = names.map((n) => /^chromium-(\d+)$/.exec(n)).filter(Boolean).sort((a, b) => b[1] - a[1]);
-    for (const m of revs) out.push(posix.join(base, m[0], 'chrome-linux', 'chrome'));
+    for (const m of revs) for (const d of PW_LAYOUTS) out.push(posix.join(base, m[0], d, 'chrome'));
   }
   return out;
 }

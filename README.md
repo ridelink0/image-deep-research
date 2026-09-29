@@ -137,15 +137,18 @@ conversation and is sent again on every later turn, so in a coding session
 add `--compact` to either script. It draws one sheet of up to 16 tiles with
 only a number badge on each: 1288x812 px, which Anthropic's vision pricing
 (28 px patches) puts at exactly 1,334 image tokens on every Claude model,
-against 2,852 for one of the eight-tile sheets. The JPEG is kept at or under
-150,000 bytes. Text is one line per result (number, source, licence, title,
-creator) or per site (ground, ink, heading and body type), with no URLs;
-`images.mjs --compact` searches 4 per source instead of 6. The numbers on the
-tiles and the lines are the same numbers, and
+against 2,852 for one of the eight-tile sheets on the high-resolution
+models (1,064 on the others). A JPEG over 150,000 bytes at
+quality 80 is taken again at 70 and then 60 (sixteen website screenshots came
+out at 131-141 kB at 80; a very busy sheet can stay over). Text is one line
+per result (number, source, licence, title, creator) or per site (ground,
+ink, heading and body type), with no URLs; `images.mjs --compact` searches
+4 per source instead of 6. The numbers on the tiles and the lines are the
+same numbers, and
 `images.mjs --pick 3,7 --results <out>/results.json` prints the full record of
 the ones you keep (licence URL, image URL, source page) without touching the
 network. On the fixtures, 16 results print in about 1,500 characters, where
-the full table for 24 prints 8,415.
+the full table for 24 prints about 8,200.
 
 ```bash
 node skills/image-deep-research/scripts/images.mjs "cypress trees" --compact

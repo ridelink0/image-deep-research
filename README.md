@@ -132,13 +132,13 @@ Output goes to a temporary folder that is printed at the end (`--out <dir>`
 to choose one): the sheets as JPEG, the screenshots as PNG, and
 `results.json` or `report.json` with everything measured.
 
-**Compact mode (1.1.0).** Every picture the model reads stays in the
-conversation and is sent again on every later turn, so in a coding session
+**Compact mode (1.1.0).** Images retained in conversation context can be
+sent again on later turns, so in a coding session
 add `--compact` to either script. It draws one sheet of up to 16 tiles with
-only a number badge on each: 1288x812 px, which Anthropic's vision pricing
-(28 px patches) puts at exactly 1,334 image tokens on every Claude model,
-against 2,852 for one of the eight-tile sheets on the high-resolution
-models (1,064 on the others). A JPEG over 150,000 bytes at
+only a number badge on each: 1288x812 px, which the documented patch formula estimates
+at 1,334 image tokens before any provider-specific resizing,
+against an estimated 2,852 for one of the eight-tile sheets on the high-resolution
+models (1,064 on the others). These are sizing estimates, not measured billing or a model-performance comparison. A JPEG over 150,000 bytes at
 quality 80 is taken again at 70 and then 60 (sixteen website screenshots came
 out at 131-141 kB at 80; a very busy sheet can stay over). Text is one line
 per result (number, source, licence, title, creator) or per site (ground,

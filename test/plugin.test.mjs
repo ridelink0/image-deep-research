@@ -16,6 +16,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const read = (p) => readFileSync(join(root, p), 'utf8');
@@ -82,6 +83,18 @@ test('the skill frontmatter fits both hosts', () => {
   assert.ok(skill.meta.description.length <= 1024, 'Codex refuses a description over 1024 characters');
   assert.ok(skill.meta['argument-hint']);
   for (const k of Object.keys(skill.meta)) assert.ok(['name', 'description', 'argument-hint'].includes(k), 'unexpected key ' + k);
+});
+
+// 1.1.0 added --compact to step 3 of the loop. The description is what every
+// session pays for, so it stays byte for byte as 1.0.1 shipped it, and the
+// body grows by at most 600 bytes over 1.0.1's 5,935.
+test('skill budget: the 1.0.1 description, and at most 600 more bytes of body', () => {
+  const V101 = { description: '949cd63e1543cff193c4d3ae9a766700501f680bc0f88cc6e0d67e0f81e53e55', body: 5935 };
+  assert.equal(createHash('sha256').update(skill.meta.description).digest('hex'), V101.description, 'the SKILL.md description changed');
+  const body = Buffer.byteLength(skill.body);
+  assert.ok(body <= V101.body + 600, `the SKILL.md body is ${body} bytes, ${body - V101.body} over 1.0.1`);
+  assert.match(skill.body, /--compact/);
+  assert.match(skill.body, /--pick/);
 });
 
 test('the skill works standalone: every script it runs ships in its own folder', () => {

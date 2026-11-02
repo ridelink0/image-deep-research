@@ -1,5 +1,13 @@
 # Image Deep Research
 
+This repository is a compatibility mirror for existing standalone installations
+and directory listings. Development lives in
+[Ultimate Frontend Skills](https://github.com/ridelink0/ultimate-frontend-skills),
+with the standalone plugin source under
+[`plugins/image-deep-research`](https://github.com/ridelink0/ultimate-frontend-skills/tree/master/plugins/image-deep-research).
+Please open new issues and changes in that canonical repository. The standalone
+installation instructions below remain available for existing users.
+
 **Image deep research and visual research for Claude Code and Codex.** Find
 reference images on open, licensed collections with every URL verified and
 every licence kept, render real websites into screenshot contact sheets,

@@ -1,0 +1,33 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Only file types the Claude directory accepts from any organization
+        shell: bash
+        run: |
+          bad=$(git ls-files | grep -vE '\.(md|txt|json|ya?ml|png|jpe?g|gif|webp|ico)$' | grep -vE '^(LICENSE|\.gitignore|\.gitattributes)$' || true)
+          if [ -n "$bad" ]; then echo "refused file types:"; echo "$bad"; exit 1; fi
+          for f in $(git ls-files '*.md' '*.json'); do
+            if head -c 2 "$f" | grep -q '#!'; then echo "starts with #!: $f"; exit 1; fi
+          done
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+      - name: claude plugin validate
+        run: claude plugin validate .

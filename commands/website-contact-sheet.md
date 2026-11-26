@@ -1,33 +1,8 @@
 ---
-description: "Render real websites in a headless browser into screenshot contact sheets and measure their palette and typefaces - visual research on competitors, styles and design references"
-argument-hint: "<URLs, or a list name: editorial, object, cinema, product>"
-disable-model-invocation: true
+description: Look at real websites for design references and report their colours, type and first screen
+argument-hint: "<urls or a category of sites>"
 ---
 
-Render websites with the image-deep-research skill. Read
-`${CLAUDE_PLUGIN_ROOT}/skills/image-deep-research/SKILL.md` first and follow
-its loop and its report.
+Use the `image-deep-research` skill. The text typed with this command is the request.
 
-The sites are the text the user typed with this command (Claude Code appends
-it below as ARGUMENTS; in Codex it is the rest of the message). If it is
-empty, ask one question: which sites, or which kind of site.
-
-`${CLAUDE_PLUGIN_ROOT}` is this plugin's folder. Codex runs this command as a
-skill and leaves that variable empty; there, use the folder that holds
-`.codex-plugin/`, three levels above this file.
-
-Run, with URLs:
-
-`node "${CLAUDE_PLUGIN_ROOT}/skills/image-deep-research/scripts/study.mjs" <url> <url>`
-
-or with a curated list:
-
-`node "${CLAUDE_PLUGIN_ROOT}/skills/image-deep-research/scripts/study.mjs" --list editorial`
-
-Add `--width 390` for a phone read. Then open the contact sheets and read them
-before writing a word about them; the grounds, ink colours and typefaces it
-prints are what the browser computed.
-
-Report the sheet paths and, per site, the one concrete move worth taking.
-Name every site that rendered as a wall or failed, and do not guess what is
-behind it.
+Open each site in the connected browser at desktop and phone widths, first screen and one screen down; without a browser, read the page and its stylesheet and say it was not seen rendered. Report per site the ground colours, the heading and body typefaces, what the first screen shows, and the one move worth taking. Report walls (bot checks, empty pages) plainly.
